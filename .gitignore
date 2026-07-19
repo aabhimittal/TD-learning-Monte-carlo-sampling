@@ -9,3 +9,6 @@ dist/
 venv/
 env/
 .DS_Store
+
+# example output written to the repo root (the tracked copy lives in docs/)
+/learning_curves.png
