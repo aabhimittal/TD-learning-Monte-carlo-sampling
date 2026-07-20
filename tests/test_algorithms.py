@@ -8,7 +8,10 @@ close after training.
 import numpy as np
 
 from rlkit.envs import GridWorld
-from rlkit.algorithms import MonteCarloControl, Sarsa, QLearning, TDPrediction, Reinforce, A2C
+from rlkit.algorithms import (
+    MonteCarloControl, Sarsa, QLearning, NStepSarsa, SarsaLambda,
+    TDPrediction, Reinforce, A2C,
+)
 
 
 def make_env():
@@ -46,6 +49,31 @@ def test_qlearning_learns():
     agent = QLearning(env.n_states, env.n_actions, gamma=1.0, alpha=0.5, epsilon=0.1, seed=0)
     agent.train(env, episodes=800)
     assert greedy_return(env, agent.greedy_policy()) >= -7
+
+
+def test_nstep_sarsa_learns():
+    env = make_env()
+    agent = NStepSarsa(env.n_states, env.n_actions, gamma=1.0, alpha=0.4,
+                       epsilon=0.1, n=4, seed=0)
+    agent.train(env, episodes=800)
+    assert greedy_return(env, agent.greedy_policy()) >= -8
+
+
+def test_sarsa_lambda_learns():
+    env = make_env()
+    agent = SarsaLambda(env.n_states, env.n_actions, gamma=1.0, alpha=0.4,
+                        epsilon=0.1, lam=0.9, seed=0)
+    agent.train(env, episodes=800)
+    assert greedy_return(env, agent.greedy_policy()) >= -8
+
+
+def test_nstep_n1_matches_one_step_sarsa():
+    # n=1 n-step SARSA should behave like plain SARSA
+    env = make_env()
+    agent = NStepSarsa(env.n_states, env.n_actions, gamma=1.0, alpha=0.5,
+                       epsilon=0.1, n=1, seed=0)
+    agent.train(env, episodes=800)
+    assert greedy_return(env, agent.greedy_policy()) >= -8
 
 
 def test_td_prediction_matches_optimal_path():

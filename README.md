@@ -10,11 +10,18 @@ written out explicitly so the maths stays readable.
 |---|---|---|---|---|
 | **Monte-Carlo control** | no | yes | value function | `MonteCarloControl` |
 | **TD control** | yes | no | value function | `Sarsa`, `QLearning` |
+| **n-step / λ TD** | partial | no | value function | `NStepSarsa`, `SarsaLambda` |
 | **REINFORCE** | no | yes | policy | `Reinforce` |
 | **A2C** | yes (critic) | no* | policy + value | `A2C` |
 
 \* the A2C here uses Monte-Carlo returns as the critic target for clarity, but
 bootstraps through the learned baseline.
+
+The tabular agents run on grid worlds; the policy-gradient agents additionally
+solve a continuous **CartPole** (both reach the max score of 500) over the raw
+observation via a NumPy MLP.
+
+![Learning curves on a 6x6 grid world](docs/learning_curves.png)
 
 ## Why it exists
 
@@ -31,6 +38,7 @@ git clone https://github.com/aabhimittal/td-learning-monte-carlo-sampling
 cd td-learning-monte-carlo-sampling
 pip install -e .            # only dependency is numpy
 pip install -e ".[test]"   # + pytest, to run the suite
+pip install -e ".[plot]"   # + matplotlib, for learning-curve figures
 ```
 
 ## Quickstart
@@ -62,13 +70,29 @@ agent.train(env, episodes=1500)
 policy = agent.greedy_policy(env.n_states, env.one_hot)
 ```
 
+The same agents solve the continuous CartPole over its raw 4-D observation:
+
+```python
+from rlkit.envs import CartPole
+from rlkit.algorithms import A2C
+
+env = CartPole()
+agent = A2C(env.n_features, env.n_actions, hidden=(64,),
+            actor_lr=0.01, critic_lr=0.02, entropy_coef=0.01, seed=0)
+agent.train(env, episodes=600, max_steps=500)
+print(agent.evaluate(CartPole(seed=1)))   # -> 500.0 (the max score)
+```
+
 ## Examples
 
 ```bash
 python examples/train_mc.py               # first-visit Monte-Carlo control
 python examples/train_td.py               # SARSA vs Q-learning on the cliff
-python examples/train_policy_gradient.py  # REINFORCE vs A2C
-python examples/compare_all.py            # all five agents, one summary table
+python examples/train_nstep.py            # 1-step vs n-step vs SARSA(λ)
+python examples/train_policy_gradient.py  # REINFORCE vs A2C on a grid world
+python examples/train_cartpole.py         # REINFORCE & A2C solve CartPole
+python examples/compare_all.py            # all agents, one summary table
+python examples/plot_learning_curves.py   # save docs/learning_curves.png (needs matplotlib)
 ```
 
 `compare_all.py` output (optimal greedy return on this 4×4 task is **-5**):
@@ -105,6 +129,17 @@ step**. The two agents differ only in the target:
 `TDPrediction` implements plain TD(0) state-value estimation for a fixed
 policy.
 
+### n-step and λ-returns (`rlkit/algorithms/td.py`)
+Two ways to interpolate between one-step TD and Monte-Carlo:
+
+* **`NStepSarsa`** accumulates `n` real rewards before bootstrapping off
+  `Q[s_{t+n}, a_{t+n}]`. `n=1` is plain SARSA; large `n` approaches MC.
+* **`SarsaLambda`** achieves the same interpolation *online* with accumulating
+  eligibility traces: every visited `(s,a)` keeps a decaying trace and the TD
+  error is broadcast to all of them. `λ=0` recovers one-step SARSA; `λ→1`
+  (with `γ=1`) approaches MC. In practice it learns fastest on the grids here
+  (see the plot above).
+
 ### REINFORCE (`rlkit/algorithms/reinforce.py`)
 Monte-Carlo policy gradient. The policy is a softmax over a NumPy MLP. Using
 the identity `d log π(a|s) / d logits = one_hot(a) − π`, the exact
@@ -121,10 +156,15 @@ regresses toward the Monte-Carlo returns.
 
 ```
 rlkit/
-├── envs/          GridWorld + CliffWalking (Gym-like reset/step)
+├── envs/          GridWorld + CliffWalking + CartPole (Gym-like reset/step)
 ├── nn/            NumPy MLP with manual backprop + Adam
-└── algorithms/    monte_carlo · td · reinforce · a2c
+├── algorithms/    monte_carlo · td (SARSA/Q/n-step/λ) · reinforce · a2c
+└── utils.py       learning-curve smoothing, sparklines, matplotlib plotting
 ```
+
+Environments share a common function-approximation interface — `env.features(obs)`
+returns the feature vector (one-hot for grids, the raw 4-vector for CartPole) —
+so the same `Reinforce`/`A2C` code runs on both discrete and continuous tasks.
 
 The neural-net core (`rlkit/nn/mlp.py`) is a minimal reverse-mode stack:
 `Linear`/`Tanh` layers implement `forward`/`backward`, the network accumulates

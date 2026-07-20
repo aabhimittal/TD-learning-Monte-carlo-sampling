@@ -68,6 +68,9 @@ class GridWorld:
         self.rng = np.random.default_rng(seed)
 
         self.n_states = rows * cols
+        # function-approximation interface (shared with CartPole): a state is
+        # encoded as a one-hot vector of length n_features.
+        self.n_features = self.n_states
         self._pos = start
         self._steps = 0
 
@@ -83,6 +86,10 @@ class GridWorld:
         vec = np.zeros(self.n_states, dtype=np.float32)
         vec[state] = 1.0
         return vec
+
+    def features(self, state: int) -> np.ndarray:
+        """Feature encoding used by the policy-gradient agents (one-hot)."""
+        return self.one_hot(state)
 
     def is_terminal(self, state: int) -> bool:
         return self.to_pos(state) in self.goals

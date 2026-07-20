@@ -55,18 +55,34 @@ class Reinforce:
 
     def _rollout(self, env, max_steps):
         feats, actions, rewards = [], [], []
-        state = env.reset()
+        obs = env.reset()
         for _ in range(max_steps):
-            feat = env.one_hot(state)
+            feat = env.features(obs)
             action = self.act(feat)
-            next_state, reward, done, _ = env.step(action)
+            obs, reward, done, _ = env.step(action)
             feats.append(feat)
             actions.append(action)
             rewards.append(reward)
-            state = next_state
             if done:
                 break
         return np.array(feats), np.array(actions), rewards
+
+    def greedy_act(self, feat: np.ndarray) -> int:
+        return int(np.argmax(self.policy.forward(feat[None])[0]))
+
+    def evaluate(self, env, episodes: int = 20, max_steps: int = 500) -> float:
+        """Mean total reward of the deterministic (argmax) policy."""
+        totals = []
+        for _ in range(episodes):
+            obs = env.reset()
+            total = 0.0
+            for _ in range(max_steps):
+                obs, reward, done, _ = env.step(self.greedy_act(env.features(obs)))
+                total += reward
+                if done:
+                    break
+            totals.append(total)
+        return float(np.mean(totals))
 
     def _update(self, feats, actions, rewards) -> float:
         returns = discounted_returns(rewards, self.gamma)
