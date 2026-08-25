@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..validation import check_finite, check_positive_int
+
 # action id -> (d_row, d_col)
 _MOVES = {
     0: (-1, 0),  # up
@@ -29,6 +31,7 @@ class GridWorld:
         ``(row, col)`` starting cell.
     goals:
         Iterable of ``(row, col)`` terminal goal cells (reward ``goal_reward``).
+        Defaults to the bottom-right cell of whatever grid you asked for.
     obstacles:
         Iterable of impassable ``(row, col)`` cells; attempting to move into
         one leaves the agent in place.
@@ -50,22 +53,39 @@ class GridWorld:
         rows: int = 4,
         cols: int = 4,
         start: tuple[int, int] = (0, 0),
-        goals=((3, 3),),
+        goals=None,
         obstacles=(),
         step_reward: float = -1.0,
         goal_reward: float = 0.0,
         max_steps: int = 100,
         seed: int | None = None,
     ):
-        self.rows = rows
-        self.cols = cols
-        self.start = start
+        self.rows = check_positive_int("rows", rows)
+        self.cols = check_positive_int("cols", cols)
+        self.max_steps = check_positive_int("max_steps", max_steps)
+        self.start = tuple(start)
+        # Default to the far corner, which follows the grid's size instead of
+        # silently landing outside it when rows/cols are changed.
+        if goals is None:
+            goals = ((self.rows - 1, self.cols - 1),)
         self.goals = {tuple(g) for g in goals}
         self.obstacles = {tuple(o) for o in obstacles}
-        self.step_reward = step_reward
-        self.goal_reward = goal_reward
-        self.max_steps = max_steps
+        self.step_reward = check_finite("step_reward", step_reward)
+        self.goal_reward = check_finite("goal_reward", goal_reward)
         self.rng = np.random.default_rng(seed)
+
+        # A cell outside the grid, or a start buried in a wall, produces an
+        # environment that "works" until an episode silently never terminates.
+        for label, cells in (("start", [self.start]), ("goal", self.goals),
+                             ("obstacle", self.obstacles)):
+            for cell in cells:
+                if len(cell) != 2 or not (0 <= cell[0] < self.rows
+                                          and 0 <= cell[1] < self.cols):
+                    raise ValueError(
+                        f"{label} cell {cell} lies outside a {self.rows}x{self.cols} grid"
+                    )
+        if self.start in self.obstacles:
+            raise ValueError(f"start cell {self.start} is also an obstacle")
 
         self.n_states = rows * cols
         # function-approximation interface (shared with CartPole): a state is
