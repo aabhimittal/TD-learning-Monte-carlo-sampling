@@ -1,11 +1,19 @@
-"""Train all five agents on the same grid world and print a summary table.
+"""Train every tabular and policy-gradient agent on one grid world.
 
 Run: ``python examples/compare_all.py``.
 """
 import numpy as np
 
 from rlkit.envs import GridWorld
-from rlkit.algorithms import MonteCarloControl, Sarsa, QLearning, Reinforce, A2C
+from rlkit.algorithms import (
+    A2C,
+    DoubleQLearning,
+    ExpectedSarsa,
+    MonteCarloControl,
+    QLearning,
+    Reinforce,
+    Sarsa,
+)
 
 
 def make_env():
@@ -39,6 +47,14 @@ def main():
     ql = QLearning(16, 4, gamma=1.0, alpha=0.5, epsilon=0.1, seed=0)
     ql.train(make_env(), episodes=800)
     rows.append(("Q-learning (TD)", greedy_return(ql.greedy_policy())))
+
+    expected = ExpectedSarsa(16, 4, gamma=1.0, alpha=0.5, epsilon=0.1, seed=0)
+    expected.train(make_env(), episodes=800)
+    rows.append(("Expected SARSA", greedy_return(expected.greedy_policy())))
+
+    double = DoubleQLearning(16, 4, gamma=1.0, alpha=0.5, epsilon=0.1, seed=0)
+    double.train(make_env(), episodes=1500)  # two tables, so twice the episodes
+    rows.append(("Double Q-learning", greedy_return(double.greedy_policy())))
 
     env = make_env()
     rf = Reinforce(16, 4, hidden=(64,), gamma=0.99, lr=0.02, seed=0)

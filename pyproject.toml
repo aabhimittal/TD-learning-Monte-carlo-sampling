@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rlkit"
-version = "0.2.0"
-description = "A dependency-light RL teaching library: Monte-Carlo, TD (SARSA/Q-learning/n-step/lambda), REINFORCE and A2C on grid worlds and CartPole, built on NumPy only."
+version = "0.3.0"
+description = "A dependency-light RL library: Monte-Carlo, TD (SARSA/Q-learning/n-step/lambda/double/expected), offline batch RL, REINFORCE and A2C on grid worlds, CartPole and industrial control tasks -- with schedules, replay, off-policy evaluation and checkpointing, built on NumPy only."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Abhishek Mittal" }]
